@@ -1,1 +1,88 @@
+#include <ESP8266WiFi.h>
+#include <ThingSpeak.h>
+#include <DHT.h>
+
+const char* ssid = "Galaxy F55 5G 1182";          
+const char* password = "fidahff";     
+unsigned long myChannelNumber = 3124169; 
+const char * myWriteAPIKey = "RIGNB1QVPDWQNIJ7"; 
+
+#define DHTPIN D4             
+#define DHTTYPE DHT11        
+#define LDR_PIN A0          
+
+
+WiFiClient client;
+DHT dht(DHTPIN, DHTTYPE);
+
+unsigned long lastSendTime = 0;
+const long sendInterval = 30000;
+
+
+void setup() {
+  Serial.begin(9600);
+  delay(10);
+
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  dht.begin();
+  ThingSpeak.begin(client);
+}
+
+
+void loop() {
+  if (millis() - lastSendTime > sendInterval) {
+
+
+    float h = dht.readHumidity();
+    float t = dht.readTemperature(); 
+
+    if (isnan(h) || isnan(t)) {
+      Serial.println("Failed to read from DHT sensor!");
+      lastSendTime = millis(); 
+      return;
+    }
+
+    int light_intensity = analogRead(LDR_PIN); 
+
+
+    Serial.print("Temperature: ");
+    Serial.print(t);
+    Serial.print(" *C, Humidity: ");
+    Serial.print(h);
+    Serial.print(" %, Light: ");
+    Serial.println(light_intensity);
+
+
+    ThingSpeak.setField(1, t);
+    ThingSpeak.setField(2, h);
+    ThingSpeak.setField(3, light_intensity);
+
+
+    int x = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+
+    if (x == 200) {
+      Serial.println("Channel update successful.");
+    } else {
+      Serial.print("Problem updating channel. HTTP error code: ");
+      Serial.println(x);
+    }
+
+    lastSendTime = millis();
+  }
+}
 
